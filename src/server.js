@@ -9,7 +9,10 @@ const app = express();
 dotenv.config();
 const port = process.env.PORT
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: "https://emsfrontend-phi.vercel.app",
+  credentials: true,
+}));
 app.use("/", router);
 app.use("/user", userRouter);
 
