@@ -11,9 +11,14 @@ export const adminLogin = async (req, res) => {
   try {
     const { name, password } = req.body;
     const admin = await adminModel.findOne({ name });
-    const pass = await adminModel.findOne({ password });
 
-    if (!admin || !pass) {
+    if (!admin) {
+      return res.status(400).send({ message: "Invalid admin credentials" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+
+    if (!isPasswordValid) {
       return res.status(400).send({ message: "Invalid admin credentials" });
     }
 
@@ -22,6 +27,7 @@ export const adminLogin = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
+
     res.send({
       admin: admin.name,
       token,
