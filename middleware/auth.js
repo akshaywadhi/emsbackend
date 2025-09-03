@@ -1,6 +1,9 @@
 import jwt from "jsonwebtoken";
 
 const auth = (req, res, next) => {
+  console.log("Auth middleware called for:", req.method, req.originalUrl);
+  console.log("Headers:", req.headers);
+  
   // Get token from header
   let token = req.header("x-auth-token");
 
@@ -12,8 +15,11 @@ const auth = (req, res, next) => {
     }
   }
 
+  console.log("Token found:", !!token);
+
   // Check if no token
   if (!token) {
+    console.log("No token provided");
     return res.status(401).json({
       success: false,
       message: "No token, authorization denied",
@@ -23,6 +29,7 @@ const auth = (req, res, next) => {
   try {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("Token decoded successfully for user:", decoded.id);
 
     // Add user from payload
     req.user = {

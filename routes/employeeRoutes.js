@@ -28,6 +28,9 @@ router.get("/", auth, async (req, res) => {
 // Get employee profile
 router.get("/profile", auth, async (req, res) => {
   try {
+    console.log("GET /profile route accessed");
+    console.log("User from request:", req.user);
+    
     if (!req.user || !req.user.id) {
       console.error("No user ID in request:", req.user);
       return res.status(401).json({
@@ -36,6 +39,7 @@ router.get("/profile", auth, async (req, res) => {
       });
     }
 
+    console.log("Looking for employee with ID:", req.user.id);
     const employee = await Employee.findById(req.user.id)
       .select("-password")
       .populate("department", "name");
@@ -48,12 +52,81 @@ router.get("/profile", auth, async (req, res) => {
       });
     }
 
+    console.log("Employee found:", employee.firstName, employee.lastName);
     res.json({
       success: true,
       employee,
     });
   } catch (err) {
     console.error("Profile route error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Update employee profile
+router.put("/profile", auth, async (req, res) => {
+  try {
+    console.log("PUT /profile route accessed");
+    console.log("User from request:", req.user);
+    console.log("Request body:", req.body);
+    
+    if (!req.user || !req.user.id) {
+      console.error("No user ID in request:", req.user);
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const { firstName, lastName, phone, address } = req.body;
+    
+    // Validate required fields
+    if (!firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: "First name and last name are required",
+      });
+    }
+
+    console.log("Looking for employee with ID:", req.user.id);
+    const employee = await Employee.findById(req.user.id);
+    if (!employee) {
+      console.error("Employee not found for ID:", req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    console.log("Employee found, updating fields...");
+    // Update allowed fields only
+    if (firstName) employee.firstName = firstName;
+    if (lastName) employee.lastName = lastName;
+    if (phone !== undefined) employee.phone = phone;
+    if (address !== undefined) employee.address = address;
+
+    await employee.save();
+    console.log("Profile updated successfully");
+    
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      employee: {
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        email: employee.email,
+        phone: employee.phone,
+        address: employee.address,
+        department: employee.department,
+        position: employee.position,
+        joiningDate: employee.joiningDate,
+      },
+    });
+  } catch (err) {
+    console.error("Profile update error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -206,16 +279,35 @@ router.get("/leaves/all", auth, async (req, res) => {
     const { status } = req.query;
     const query = status && status !== "all" ? { status } : {};
 
+    console.log("Fetching leaves with query:", query);
+    
     const leaves = await Leave.find(query)
       .populate("employee", "firstName lastName email department")
       .sort({ createdAt: -1 });
+
+    console.log(`Found ${leaves.length} leave records`);
+    
+    // Check for leaves without employee data
+    const invalidLeaves = leaves.filter(leave => !leave.employee);
+    if (invalidLeaves.length > 0) {
+      console.warn(`Found ${invalidLeaves.length} leave records without employee data:`, 
+        invalidLeaves.map(l => ({ id: l._id, employeeId: l.employee }))
+      );
+      
+      // Optionally clean up orphaned leave records
+      // Uncomment the following lines if you want to automatically remove orphaned records
+      // for (const invalidLeave of invalidLeaves) {
+      //   await Leave.findByIdAndDelete(invalidLeave._id);
+      //   console.log(`Deleted orphaned leave record: ${invalidLeave._id}`);
+      // }
+    }
 
     res.json({
       success: true,
       leaves,
     });
   } catch (err) {
-    console.error(err.message);
+    console.error("Error fetching leaves:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -245,6 +337,45 @@ router.put("/leaves/:id/status", auth, async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Clean up orphaned leave records (admin only)
+router.delete("/leaves/cleanup", auth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    // Find all leave records
+    const allLeaves = await Leave.find();
+    let deletedCount = 0;
+
+    for (const leave of allLeaves) {
+      // Check if employee exists
+      const employee = await Employee.findById(leave.employee);
+      if (!employee) {
+        await Leave.findByIdAndDelete(leave._id);
+        deletedCount++;
+        console.log(`Deleted orphaned leave record: ${leave._id}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Cleaned up ${deletedCount} orphaned leave records`,
+      deletedCount,
+    });
+  } catch (err) {
+    console.error("Cleanup error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -428,139 +559,6 @@ router.get("/reports/department", auth, async (req, res) => {
   }
 });
 
-// Get employee by ID
-router.get("/:id", auth, async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id).select("-password");
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found",
-      });
-    }
-    res.json({
-      success: true,
-      employee,
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-});
-
-// Update employee
-router.put("/:id", auth, async (req, res) => {
-  try {
-    const { firstName, lastName, email, department, role } = req.body;
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found",
-      });
-    }
-
-    // Update fields
-    if (firstName) employee.firstName = firstName;
-    if (lastName) employee.lastName = lastName;
-    if (email) employee.email = email;
-    if (department) employee.department = department;
-    if (role) employee.role = role;
-
-    await employee.save();
-    res.json({
-      success: true,
-      employee,
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-});
-
-// Delete employee
-router.delete("/:id", auth, async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found",
-      });
-    }
-
-    await employee.deleteOne();
-    res.json({
-      success: true,
-      message: "Employee removed",
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-});
-
-// Get employee payslips by ID (admin only)
-router.get("/:id/payslips", auth, async (req, res) => {
-  try {
-    const payslips = await Payslip.find({ employee: req.params.id });
-    res.json({
-      success: true,
-      payslips,
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-});
-
-// Create payslip (admin only)
-router.post("/:id/payslips", auth, async (req, res) => {
-  try {
-    const { month, year, basicSalary, allowances, deductions } = req.body;
-    const employee = await Employee.findById(req.params.id);
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found",
-      });
-    }
-
-    const payslip = new Payslip({
-      employee: req.params.id,
-      month,
-      year,
-      basicSalary,
-      allowances,
-      deductions,
-    });
-
-    await payslip.save();
-    res.json({
-      success: true,
-      payslip,
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-});
-
 // Mark attendance
 router.post("/attendance/mark", auth, async (req, res) => {
   try {
@@ -652,6 +650,142 @@ router.post("/leaves", auth, async (req, res) => {
     });
   } catch (err) {
     console.error("Create leave request error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Get employee payslips by ID (admin only)
+router.get("/:id/payslips", auth, async (req, res) => {
+  try {
+    const payslips = await Payslip.find({ employee: req.params.id });
+    res.json({
+      success: true,
+      payslips,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Create payslip (admin only)
+router.post("/:id/payslips", auth, async (req, res) => {
+  try {
+    const { month, year, basicSalary, allowances, deductions } = req.body;
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    const payslip = new Payslip({
+      employee: req.params.id,
+      month,
+      year,
+      basicSalary,
+      allowances,
+      deductions,
+    });
+
+    await payslip.save();
+    res.json({
+      success: true,
+      payslip,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Get employee by ID
+router.get("/:id", auth, async (req, res) => {
+  try {
+    console.log("GET /:id route accessed with ID:", req.params.id);
+    console.log("Full URL:", req.originalUrl);
+    
+    const employee = await Employee.findById(req.params.id).select("-password");
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+    res.json({
+      success: true,
+      employee,
+    });
+  } catch (err) {
+    console.error("Error in /:id route:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Update employee
+router.put("/:id", auth, async (req, res) => {
+  try {
+    const { firstName, lastName, email, department, role } = req.body;
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    // Update fields
+    if (firstName) employee.firstName = firstName;
+    if (lastName) employee.lastName = lastName;
+    if (email) employee.email = email;
+    if (department) employee.department = department;
+    if (role) employee.role = role;
+
+    await employee.save();
+    res.json({
+      success: true,
+      employee,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+
+// Delete employee
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    await employee.deleteOne();
+    res.json({
+      success: true,
+      message: "Employee removed",
+    });
+  } catch (err) {
+    console.error(err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
