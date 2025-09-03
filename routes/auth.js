@@ -6,12 +6,12 @@ import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Register employee
+
 router.post("/register", async (req, res) => {
   try {
     const { firstName, lastName, email, password,position, role } = req.body;
 
-    // Validate input
+  
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -19,7 +19,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Check if employee already exists
     let employee = await Employee.findOne({ email });
     if (employee) {
       return res.status(400).json({
@@ -28,7 +27,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    // Create new employee
+   
     employee = new Employee({
       firstName,
       lastName,
@@ -38,14 +37,13 @@ router.post("/register", async (req, res) => {
       role: role || "employee",
     });
 
-    // Hash password
+
     const salt = await bcrypt.genSalt(10);
     employee.password = await bcrypt.hash(password, salt);
 
-    // Save employee
+  
     await employee.save();
 
-    // Create JWT token
     const payload = {
       id: employee.id,
       role: employee.role,
@@ -80,12 +78,12 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Login employee
+
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if employee exists
+   
     const employee = await Employee.findOne({ email });
     if (!employee) {
       return res.status(400).json({
@@ -94,7 +92,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) {
       return res.status(400).json({
@@ -103,7 +100,6 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // Create JWT token
     const payload = {
       id: employee.id,
       role: employee.role,
@@ -137,7 +133,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Get current employee
+
 router.get("/me", auth, async (req, res) => {
   try {
     const employee = await Employee.findById(req.user.id).select("-password");
@@ -160,7 +156,7 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
-// Verify token
+
 router.get("/verify", auth, async (req, res) => {
   try {
     const employee = await Employee.findById(req.user.id).select("-password");

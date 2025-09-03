@@ -44,7 +44,7 @@ const payslipSchema = new mongoose.Schema(
   }
 );
 
-// Create compound index for employee, month, and year
+
 payslipSchema.index({ employee: 1, month: 1, year: 1 }, { unique: true });
 
 const Payslip = mongoose.model("Payslip", payslipSchema);

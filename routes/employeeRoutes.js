@@ -8,7 +8,7 @@ import Leave from "../models/Leave.js";
 
 const router = express.Router();
 
-// Get all employees
+
 router.get("/", auth, async (req, res) => {
   try {
     const employees = await Employee.find().select("-password");
@@ -25,7 +25,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// Get employee profile
+
 router.get("/profile", auth, async (req, res) => {
   try {
     console.log("GET /profile route accessed");
@@ -66,7 +66,7 @@ router.get("/profile", auth, async (req, res) => {
   }
 });
 
-// Update employee profile
+
 router.put("/profile", auth, async (req, res) => {
   try {
     console.log("PUT /profile route accessed");
@@ -82,8 +82,7 @@ router.put("/profile", auth, async (req, res) => {
     }
 
     const { firstName, lastName, phone, address } = req.body;
-    
-    // Validate required fields
+
     if (!firstName || !lastName) {
       return res.status(400).json({
         success: false,
@@ -102,7 +101,7 @@ router.put("/profile", auth, async (req, res) => {
     }
 
     console.log("Employee found, updating fields...");
-    // Update allowed fields only
+
     if (firstName) employee.firstName = firstName;
     if (lastName) employee.lastName = lastName;
     if (phone !== undefined) employee.phone = phone;
@@ -134,7 +133,7 @@ router.put("/profile", auth, async (req, res) => {
   }
 });
 
-// Get employee attendance
+
 router.get("/attendance", auth, async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -162,7 +161,7 @@ router.get("/attendance", auth, async (req, res) => {
   }
 });
 
-// Get employee leaves
+
 router.get("/leaves", auth, async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -190,7 +189,6 @@ router.get("/leaves", auth, async (req, res) => {
   }
 });
 
-// Get employee payslips
 router.get("/payslips", auth, async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -219,7 +217,6 @@ router.get("/payslips", auth, async (req, res) => {
   }
 });
 
-// Get employee department
 router.get("/department", auth, async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -286,20 +283,14 @@ router.get("/leaves/all", auth, async (req, res) => {
       .sort({ createdAt: -1 });
 
     console.log(`Found ${leaves.length} leave records`);
-    
-    // Check for leaves without employee data
+
     const invalidLeaves = leaves.filter(leave => !leave.employee);
     if (invalidLeaves.length > 0) {
       console.warn(`Found ${invalidLeaves.length} leave records without employee data:`, 
         invalidLeaves.map(l => ({ id: l._id, employeeId: l.employee }))
       );
       
-      // Optionally clean up orphaned leave records
-      // Uncomment the following lines if you want to automatically remove orphaned records
-      // for (const invalidLeave of invalidLeaves) {
-      //   await Leave.findByIdAndDelete(invalidLeave._id);
-      //   console.log(`Deleted orphaned leave record: ${invalidLeave._id}`);
-      // }
+  
     }
 
     res.json({
@@ -315,7 +306,6 @@ router.get("/leaves/all", auth, async (req, res) => {
   }
 });
 
-// Update leave request status
 router.put("/leaves/:id/status", auth, async (req, res) => {
   try {
     const { status } = req.body;

@@ -26,7 +26,7 @@ const attendanceSchema = new mongoose.Schema(
   }
 );
 
-// Create compound index for employee and date
+
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);

@@ -4,7 +4,7 @@ import Department from "../models/Department.js";
 
 const router = express.Router();
 
-// Get all departments
+
 router.get("/", auth, async (req, res) => {
   try {
     const departments = await Department.find();
@@ -21,7 +21,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-// Get department by ID
+
 router.get("/:id", auth, async (req, res) => {
   try {
     const department = await Department.findById(req.params.id);
@@ -44,7 +44,7 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
-// Create department
+
 router.post("/", auth, async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -66,7 +66,7 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// Update department
+
 router.put("/:id", auth, async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -95,7 +95,7 @@ router.put("/:id", auth, async (req, res) => {
   }
 });
 
-// Delete department
+
 router.delete("/:id", auth, async (req, res) => {
   try {
     const department = await Department.findById(req.params.id);

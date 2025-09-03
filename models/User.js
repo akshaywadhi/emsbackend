@@ -11,6 +11,5 @@ const userSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Create the User model
-const User = mongoose.model("User", userSchema); // The collection created will be 'users'
+const User = mongoose.model("User", userSchema); 
 export default User;
