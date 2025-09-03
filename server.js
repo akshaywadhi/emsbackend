@@ -15,6 +15,11 @@ console.log("PORT:", process.env.PORT);
 console.log("MONGODB_URI exists:", !!process.env.MONGODB_URI);
 console.log("JWT_SECRET exists:", !!process.env.JWT_SECRET);
 
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = "default_jwt_secret_for_development";
+  console.log("Using default JWT_SECRET for development");
+}
+
 const app = express();
 
 
@@ -32,13 +37,12 @@ const mongooseOptions = {
 
 const connectDB = async () => {
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error("MONGODB_URI is not defined in environment variables");
-    }
-    await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
+    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/ems";
+    await mongoose.connect(mongoUri, mongooseOptions);
     console.log("MongoDB connected successfully");
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
+    console.log("Please make sure MongoDB is running or provide a valid MONGODB_URI");
     process.exit(1);
   }
 };
