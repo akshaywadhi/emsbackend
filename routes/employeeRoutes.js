@@ -256,14 +256,32 @@ router.put("/leaves/:id/status", auth, async (req, res) => {
 router.get("/reports/attendance", auth, async (req, res) => {
   try {
     const { month, year } = req.query;
+    console.log(`Generating attendance report for month: ${month}, year: ${year}`);
+    
+    if (!month || !year) {
+      return res.status(400).json({
+        success: false,
+        message: "Month and year are required",
+      });
+    }
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
+    
+    console.log(`Date range: ${startDate} to ${endDate}`);
 
     const attendance = await Attendance.find({
       date: { $gte: startDate, $lte: endDate },
     }).populate("employee", "firstName lastName email department");
 
+    console.log(`Found ${attendance.length} attendance records`);
+
     const report = attendance.reduce((acc, record) => {
+      if (!record.employee) {
+        console.log(`Skipping record without employee:`, record);
+        return acc;
+      }
+      
       const employeeId = record.employee._id.toString();
       if (!acc[employeeId]) {
         acc[employeeId] = {
@@ -283,13 +301,16 @@ router.get("/reports/attendance", auth, async (req, res) => {
       return acc;
     }, {});
 
+    const reportData = Object.values(report);
+    console.log(`Generated report with ${reportData.length} employee records`);
+
     res.json({
       success: true,
-      report: Object.values(report),
+      report: reportData,
       period: { month, year },
     });
   } catch (err) {
-    console.error(err.message);
+    console.error("Attendance report error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -301,15 +322,33 @@ router.get("/reports/attendance", auth, async (req, res) => {
 router.get("/reports/leave", auth, async (req, res) => {
   try {
     const { month, year } = req.query;
+    console.log(`Generating leave report for month: ${month}, year: ${year}`);
+    
+    if (!month || !year) {
+      return res.status(400).json({
+        success: false,
+        message: "Month and year are required",
+      });
+    }
+
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
+    
+    console.log(`Date range: ${startDate} to ${endDate}`);
 
     const leaves = await Leave.find({
       startDate: { $lte: endDate },
       endDate: { $gte: startDate },
     }).populate("employee", "firstName lastName email department");
 
+    console.log(`Found ${leaves.length} leave records`);
+
     const report = leaves.reduce((acc, record) => {
+      if (!record.employee) {
+        console.log(`Skipping record without employee:`, record);
+        return acc;
+      }
+      
       const employeeId = record.employee._id.toString();
       if (!acc[employeeId]) {
         acc[employeeId] = {
@@ -329,13 +368,16 @@ router.get("/reports/leave", auth, async (req, res) => {
       return acc;
     }, {});
 
+    const reportData = Object.values(report);
+    console.log(`Generated report with ${reportData.length} employee records`);
+
     res.json({
       success: true,
-      report: Object.values(report),
+      report: reportData,
       period: { month, year },
     });
   } catch (err) {
-    console.error(err.message);
+    console.error("Leave report error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -346,8 +388,13 @@ router.get("/reports/leave", auth, async (req, res) => {
 // Generate department report
 router.get("/reports/department", auth, async (req, res) => {
   try {
+    console.log("Generating department report");
+    
     const departments = await Department.find();
+    console.log(`Found ${departments.length} departments`);
+    
     const employees = await Employee.find().populate("department");
+    console.log(`Found ${employees.length} employees`);
 
     const report = departments.map((dept) => {
       const deptEmployees = employees.filter(
@@ -355,7 +402,7 @@ router.get("/reports/department", auth, async (req, res) => {
       );
 
       const positions = deptEmployees.reduce((acc, emp) => {
-        acc[emp.role] = (acc[emp.role] || 0) + 1;
+        acc[emp.position || 'Unknown'] = (acc[emp.position || 'Unknown'] || 0) + 1;
         return acc;
       }, {});
 
@@ -366,12 +413,14 @@ router.get("/reports/department", auth, async (req, res) => {
       };
     });
 
+    console.log(`Generated report with ${report.length} department records`);
+
     res.json({
       success: true,
       report,
     });
   } catch (err) {
-    console.error(err.message);
+    console.error("Department report error:", err.message);
     res.status(500).json({
       success: false,
       message: "Server error",
