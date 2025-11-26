@@ -27,18 +27,13 @@ app.use(cors());
 app.use(express.json());
 
 
-const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-};
+
 
 
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/ems";
-    await mongoose.connect(mongoUri, mongooseOptions);
+    await mongoose.connect(mongoUri);
     console.log("MongoDB connected successfully");
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
